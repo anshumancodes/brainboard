@@ -1,0 +1,20 @@
+{
+  "name": "brainboard-api",
+  "version": "1.0.0",
+  "description": "websocket + rest based backend for brainboard app",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "brainboard"
+  },
+  "keywords": [
+    "websocket",
+    "nodejs",
+    "rest"
+  ],
+  "author": "anshumancodes",
+  "license": "ISC"
+}
