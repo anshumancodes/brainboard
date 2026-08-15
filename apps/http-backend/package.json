@@ -4,13 +4,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev":"tsc -b && node ./dist/index.js",
-    "start":"node .dist/index.js"
+    "build": "tsc -b",
+    "start": "node .dist/index.js",
+    "dev": "npm run build && npm run start"
   },
-  "dependencies":{
-    "@repo/typescript-config":"workspace:*"
+  "dependencies": {
+    "@repo/typescript-config": "workspace:*"
   },
-
   "author": "",
   "license": "ISC",
   "description": ""
