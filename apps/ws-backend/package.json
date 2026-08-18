@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@repo/typescript-config": "workspace:*",
+    "@repo/backend-common": "workspace:*",
     "@types/ws": "^8.18.1",
+    "jose": "^6.2.9",
     "ws": "^8.21.3"
   },
   "author": "",

@@ -11,8 +11,11 @@
   },
   "dependencies": {
     "@repo/typescript-config": "workspace:*",
+    "@repo/backend-common":"workspace:*",
     "@types/express": "^5.0.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jose": "^6.2.9",
+    "mongoose": "^9.9.2"
   },
   "author": "",
   "license": "ISC",
