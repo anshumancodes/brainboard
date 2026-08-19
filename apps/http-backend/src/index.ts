@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response } from "express";
 import middleware from "./middlware.js";
 import { UserSchema } from "@repo/common/types";
-import { UserModel } from "@repo/database/user";
+import { prisma } from "@repo/database";
 const app = express();
 
 app.listen(8000, () => {
@@ -30,7 +30,11 @@ async function signup(req: Request, res: Response) {
     });
   }
 
-  const doesExist = await UserModel.findOne({ username });
+  const doesExist = await prisma.user.findUnique({
+    where: {
+      username,
+    },
+  });
 
   if (doesExist) {
     return res.status(409).json({
@@ -38,14 +42,20 @@ async function signup(req: Request, res: Response) {
     });
   }
 
-  const user = await UserModel.create({
-    name,
-    username,
-    email,
-    password,
+  const user = await prisma.user.create({
+    data: {
+      name,
+      username,
+      email,
+      password,
+    },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      email: true,
+    },
   });
-
-  const sanitizedUser=await user.select("-password")
 
   return res.status(201).json({
     message: "Signup successful",
