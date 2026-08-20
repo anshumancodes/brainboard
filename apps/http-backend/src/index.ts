@@ -1,8 +1,10 @@
 import express from "express";
 import type { Request, Response } from "express";
 import middleware from "./middlware.js";
-import { UserSchema } from "@repo/common/types";
+import { UserSchema, SignInSchema } from "@repo/common/types";
 import { prisma } from "@repo/database";
+import hashPassword from "./utils/utils.js";
+import { validatePassoword } from "./utils/utils.js";
 const app = express();
 
 app.listen(8000, () => {
@@ -41,13 +43,14 @@ async function signup(req: Request, res: Response) {
       message: "User with this username already exists",
     });
   }
+  const hashedPassword = await hashPassword(password);
 
   const user = await prisma.user.create({
     data: {
       name,
       username,
       email,
-      password,
+      password: hashedPassword,
     },
     select: {
       id: true,
@@ -63,6 +66,50 @@ async function signup(req: Request, res: Response) {
   });
 }
 
-async function signIn(req: Request, res: Response) {}
+async function signIn(req: Request, res: Response) {
+  const { username, password } = req.body;
+
+  const validate = SignInSchema.safeParse({
+    username,
+    password,
+  });
+
+  if (!validate.success) {
+    return res.status(400).json({
+      message: "Invalid input",
+      errors: validate.error.flatten(),
+    });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      username,
+    },
+    select: {
+      hashedPassword: true,
+    },
+  });
+
+  if (!user) {
+    return res.status(401).json({
+      message: "Invalid username or password",
+    });
+  }
+
+  const isPasswordRight = await validatePassoword(
+    user.hashedPassword,
+    password,
+  );
+
+  if (!isPasswordRight) {
+    return res.status(401).json({
+      message: "Invalid username or password",
+    });
+  }
+
+  return res.status(200).json({
+    message: "Signed in successfully",
+  });
+}
 
 async function createRoom(params: string) {}
