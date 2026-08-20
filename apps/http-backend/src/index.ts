@@ -1,7 +1,7 @@
 import express from "express";
 import type { Request, Response } from "express";
 import middleware from "./middlware.js";
-import { UserSchema, SignInSchema } from "@repo/common/types";
+import { UserSchema, SignInSchema, CreateRoomSchema } from "@repo/common/types";
 import { prisma } from "@repo/database";
 import hashPassword from "./utils/utils.js";
 import { validatePassoword } from "./utils/utils.js";
@@ -45,25 +45,32 @@ async function signup(req: Request, res: Response) {
   }
   const hashedPassword = await hashPassword(password);
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      username,
-      email,
-      password: hashedPassword,
-    },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      email: true,
-    },
-  });
+  try {
+    const user = await prisma.user.create({
+      data: {
+        name,
+        username,
+        email,
+        password: hashedPassword,
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+      },
+    });
 
-  return res.status(201).json({
-    message: "Signup successful",
-    user,
-  });
+    return res.status(201).json({
+      message: "Signup successful",
+      user,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to create User",
+      error: error,
+    });
+  }
 }
 
 async function signIn(req: Request, res: Response) {
@@ -112,4 +119,34 @@ async function signIn(req: Request, res: Response) {
   });
 }
 
-async function createRoom(params: string) {}
+async function createRoom(req: Request, res: Response) {
+  const { slug, adminId } = req.body;
+
+  const validateRoomdata = CreateRoomSchema.safeParse({
+    name: slug,
+  });
+
+  if (!validateRoomdata.success) {
+    return res.status(400).json({
+      message: "Invalid input",
+      errors: validateRoomdata.error.flatten(),
+    });
+  }
+  try {
+    const room = await prisma.room.create({
+      data: {
+        slug,
+        adminId,
+      },
+    });
+    return res.status(200).json({
+      message: "Signed in successfully",
+      room: room,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to create Room",
+      error: error,
+    });
+  }
+}
