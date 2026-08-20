@@ -3,24 +3,76 @@ import { JWT_SECRET } from "@repo/backend-common/config";
 const wss = new WebSocketServer({ port: 8080 });
 import { jwtVerify } from "jose";
 
+async function checkUser(token: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+
+    if (!payload.userId || typeof payload.userId !== "string") {
+      return null;
+    }
+
+    return payload.userId;
+  } catch {
+    return null;
+  }
+}
+
+interface User {
+  userId: string;
+  rooms: string[];
+  ws: WebSocket;
+}
+
+const users: User[] = [];
+
 wss.on("connection", async function connection(ws, request) {
   const url = request.url;
   if (!url) {
     return "no request url found!";
   }
-
   const queryParams = new URLSearchParams(url.split("?")[1]);
   const token = queryParams.get("token") ?? " ";
-  const decoded = await jwtVerify(token, JWT_SECRET);
-  if (typeof decoded == "string") {
+  const userId = await checkUser(token);
+  if (!userId) {
     ws.close();
     return;
   }
-  if (!decoded) {
-    ws.close();
-    return;
-  }
-  ws.on("message", (message) => {
-    ws.send("pong");
+
+  users.push({
+    userId,
+    rooms: [],
+    ws,
+  });
+
+  ws.on("message", (data) => {
+    const ParsedData = JSON.parse(data as unknown as string);
+    if (ParsedData.type === "join_room") {
+      // basically find the user whose socket is matching
+      const user = users.find((u) => u.ws === ws);
+      // push the roomid to that user's room id aray
+      user?.rooms.push(ParsedData.roomId);
+    }
+    if (ParsedData.type === "leave_room") {
+      // basically find the user whose socket is matching
+      const user = users.find((x) => x.ws === ws);
+      if (!user) {
+        return;
+      }
+
+      user.rooms = user?.rooms.filter((roomid) => roomid === ParsedData.roomId);
+    }
+    if(ParsedData.type==="chat"){
+      const roomId=ParsedData.roomId;
+      const message=ParsedData.message
+      users.forEach((user)=>{
+        if(user.rooms.includes(roomId)){
+          user.ws.send(JSON.stringify({
+            type:"chat",
+            message:message,
+            roomId
+          }))
+        }
+      })
+    }
   });
 });
