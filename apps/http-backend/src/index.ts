@@ -100,7 +100,11 @@ async function signIn(req: Request, res: Response) {
     }
 
     const { password: _pw, ...userdata } = user;
-    const userToken = await createToken({ user: userdata });
+    const userToken = await createToken({
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+    });
     res.setHeader("Authorization", `Bearer ${userToken}`);
     return res.status(200).json({
       message: "Signed in successfully",
@@ -113,7 +117,7 @@ async function signIn(req: Request, res: Response) {
 }
 
 async function createRoom(req: Request, res: Response) {
-  const { slug, adminId } = req.body;
+  const { slug } = req.body;
 
   const validateRoomdata = CreateRoomSchema.safeParse({
     name: slug,
@@ -125,21 +129,23 @@ async function createRoom(req: Request, res: Response) {
       errors: validateRoomdata.error.flatten(),
     });
   }
+
   try {
     const room = await prisma.room.create({
       data: {
         slug,
-        adminId,
+        adminId: req.userId!,
       },
     });
-    return res.status(200).json({
-      message: "Signed in successfully",
-      room: room,
+    return res.status(201).json({
+      message: "Room created successfully",
+      room,
     });
   } catch (error) {
+    console.error(error);
+
     return res.status(500).json({
       message: "Failed to create Room",
-      error: error,
     });
   }
 }
