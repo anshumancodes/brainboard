@@ -40,9 +40,9 @@ async function createRoom(req: Request, res: Response) {
 async function getChats(req: Request, res: Response) {
   try {
     const roomId = Number(req.params.roomId);
-    const messages = prisma.room.findMany({
+    const messages = await prisma.chat.findMany({
       where: {
-        id: roomId,
+        roomId: roomId,
       },
       orderBy: {
         id: "desc",
