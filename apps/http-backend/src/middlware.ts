@@ -32,8 +32,7 @@ export default async function middleware(
       });
     }
 
-    req.user = payload.userId;
-
+    req.userId = payload.userId;
     next();
   } catch (error) {
     return res.status(401).json({
