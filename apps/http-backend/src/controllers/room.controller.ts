@@ -61,4 +61,35 @@ async function getChats(req: Request, res: Response) {
   }
 }
 
-export { createRoom, getChats };
+async function getRoomIdfromSlug(req: Request, res: Response) {
+  try {
+    const slug = String(req.params.slug);
+
+    const room = await prisma.room.findUnique({
+      where: {
+        slug,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        message: "Room not found",
+      });
+    }
+
+    return res.status(200).json({
+      roomId: room.id,
+    });
+  } catch (error) {
+    console.error("Failed to get room ID:", error);
+
+    return res.status(500).json({
+      message: "Failed to get room ID",
+    });
+  }
+}
+
+export { createRoom, getChats, getRoomIdfromSlug };
