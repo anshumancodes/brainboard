@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "exports": {
     "./config": "./src/index.ts"
   },
@@ -17,5 +18,8 @@
   "license": "ISC",
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
   }
 }
