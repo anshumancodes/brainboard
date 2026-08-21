@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { jwtVerify } from "jose";
 import { JWT_SECRET } from "@repo/backend-common/config";
 
-export default async function middleware(
+export default async function authMiddleware(
   req: Request,
   res: Response,
   next: NextFunction,
