@@ -62,14 +62,16 @@ wss.on("connection", async function connection(ws, request) {
         return;
       }
 
-      user.rooms = user?.rooms.filter((roomid) => roomid === ParsedData.roomId);
+      user.rooms = user.rooms.filter((roomid) => roomid !== ParsedData.roomId);
     }
     if (ParsedData.type === "chat") {
-      const roomId = ParsedData.roomId;
+      const roomIdStr: string = ParsedData.roomId;  // rooms[] stores strings
+      const roomId = parseInt(roomIdStr, 10);        // Prisma expects Int
       const message = ParsedData.message;
 
-      // insert the data
+      if (isNaN(roomId)) return;
 
+      // persist the message
       await prisma.chat.create({
         data: {
           roomId,
@@ -78,13 +80,15 @@ wss.on("connection", async function connection(ws, request) {
         },
       });
 
+      // broadcast to all OTHER users in this room (sender has optimistic update)
       users.forEach((user) => {
-        if (user.rooms.includes(roomId)) {
+        if (user.rooms.includes(roomIdStr) && user.ws !== ws) {
           user.ws.send(
             JSON.stringify({
               type: "chat",
-              message: message,
-              roomId,
+              message,
+              userId,
+              roomId: roomIdStr,
             }),
           );
         }
