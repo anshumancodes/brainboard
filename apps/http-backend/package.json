@@ -12,6 +12,7 @@
     "@repo/database": "workspace:*",
     "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
     "jose": "^6.2.9",
     "mongoose": "^9.9.2"
@@ -20,6 +21,7 @@
     "@repo/backend-common": "workspace:*",
     "@repo/common": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "tsx": "^4.23.12"
   },
