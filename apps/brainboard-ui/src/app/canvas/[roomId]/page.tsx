@@ -1,7 +1,7 @@
-import React from 'react'
+import Whiteboard from "@/components/whiteboard/Whiteboard";
 
-export const page = () => {
-  return (
-    <div>canvas</div>
-  )
-}
+const canvasPage = () => {
+  return <div><Whiteboard/></div>;
+};
+
+export default canvasPage;
