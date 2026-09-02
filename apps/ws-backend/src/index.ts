@@ -69,6 +69,9 @@ wss.on("connection", async function connection(ws, request) {
       const roomId = parseInt(roomIdStr, 10); // Prisma expects Int
       const message = ParsedData.message;
       const shapeName = ParsedData.shape;
+      // Optional client-generated temporary id used to match the ack back to
+      // the exact Fabric object without relying on JSON comparison.
+      const tempId: string | undefined = ParsedData.tempId;
 
       if (isNaN(roomId)) return;
 
@@ -88,6 +91,7 @@ wss.on("connection", async function connection(ws, request) {
           JSON.stringify({
             type: "shape_created",
             shapeId: createdShape.id,
+            tempId,   // echo back so the client can find the correct Fabric object
             message,
           }),
         );
