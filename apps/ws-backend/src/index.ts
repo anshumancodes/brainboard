@@ -91,7 +91,7 @@ wss.on("connection", async function connection(ws, request) {
           JSON.stringify({
             type: "shape_created",
             shapeId: createdShape.id,
-            tempId,   // echo back so the client can find the correct Fabric object
+            tempId, // echo back so the client can find the correct Fabric object
             message,
           }),
         );
@@ -107,6 +107,53 @@ wss.on("connection", async function connection(ws, request) {
               message,
               shape: shapeName,
               userId,
+              roomId: roomIdStr,
+            }),
+          );
+        }
+      });
+    }
+
+    // updating here  so basically am mutatating a an existing shape record; no new row is created.
+
+    if (ParsedData.type === "update") {
+      const shapeId = parseInt(ParsedData.shapeId, 10);
+      const message = ParsedData.message;
+      const roomIdStr: string = ParsedData.roomId;
+
+      if (isNaN(shapeId)) return;
+      const shape = await prisma.shape.findFirst({
+        where: {
+          id: shapeId,
+          roomId: parseInt(roomIdStr, 10),
+        },
+      });
+
+      if (!shape) return;
+      // Persist the new state in the DB
+      const updatedShape = await prisma.shape.update({
+        where: { id: shapeId },
+        data: { data: message },
+      });
+
+      // Ack the sender so they know the DB is in sync
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "shape_updated",
+            shapeId: updatedShape.id,
+          }),
+        );
+      }
+
+      // Broadcast the new state to every OTHER client in the room
+      users.forEach((user) => {
+        if (user.rooms.includes(roomIdStr) && user.ws !== ws) {
+          user.ws.send(
+            JSON.stringify({
+              type: "shape_updated",
+              shapeId: updatedShape.id,
+              message,
               roomId: roomIdStr,
             }),
           );
