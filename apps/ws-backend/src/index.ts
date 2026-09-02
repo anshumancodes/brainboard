@@ -64,19 +64,21 @@ wss.on("connection", async function connection(ws, request) {
 
       user.rooms = user.rooms.filter((roomid) => roomid !== ParsedData.roomId);
     }
-    if (ParsedData.type === "chat") {
-      const roomIdStr: string = ParsedData.roomId;  // rooms[] stores strings
-      const roomId = parseInt(roomIdStr, 10);        // Prisma expects Int
+    if (ParsedData.type === "draw") {
+      const roomIdStr: string = ParsedData.roomId; // rooms[] stores strings
+      const roomId = parseInt(roomIdStr, 10); // Prisma expects Int
       const message = ParsedData.message;
+      const shapeName = ParsedData.shape;
 
       if (isNaN(roomId)) return;
 
-      // persist the message
-      await prisma.chat.create({
+      // persist the shape in db
+      await prisma.shape.create({
         data: {
           roomId,
-          message,
           userId,
+          name: shapeName,
+          data: message.toJSON(),
         },
       });
 
@@ -85,8 +87,9 @@ wss.on("connection", async function connection(ws, request) {
         if (user.rooms.includes(roomIdStr) && user.ws !== ws) {
           user.ws.send(
             JSON.stringify({
-              type: "chat",
+              type: "draw",
               message,
+              name,
               userId,
               roomId: roomIdStr,
             }),
