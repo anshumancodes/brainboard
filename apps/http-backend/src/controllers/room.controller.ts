@@ -37,29 +37,6 @@ async function createRoom(req: Request, res: Response) {
   }
 }
 
-async function getChats(req: Request, res: Response) {
-  try {
-    const roomId = Number(req.params.roomId);
-    const messages = await prisma.chat.findMany({
-      where: {
-        roomId: roomId,
-      },
-      orderBy: {
-        id: "desc",
-      },
-      take: 50,
-    });
-    return res.status(201).json({
-      messages: messages,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      error: error,
-      message: "cant fetch messages",
-    });
-  }
-}
 
 async function getRoomIdfromSlug(req: Request, res: Response) {
   try {
@@ -129,7 +106,7 @@ async function deleteRoom(req: Request, res: Response) {
       return res.status(403).json({ message: "Forbidden: you do not own this room" });
     }
 
-    await prisma.chat.deleteMany({ where: { roomId } });
+    await prisma.shape.deleteMany({ where: { roomId } });
     await prisma.room.delete({ where: { id: roomId } });
 
     return res.status(200).json({ message: "Room deleted successfully" });
@@ -139,4 +116,24 @@ async function deleteRoom(req: Request, res: Response) {
   }
 }
 
-export { createRoom, getChats, getRoomIdfromSlug, getMyRooms, deleteRoom };
+async function getShapes(req: Request, res: Response) {
+  try {
+    const roomId = Number(req.params.roomId);
+
+    if (isNaN(roomId)) {
+      return res.status(400).json({ message: "Invalid room ID" });
+    }
+
+    const shapes = await prisma.shape.findMany({
+      where: { roomId },
+      orderBy: { id: "asc" },
+    });
+
+    return res.status(200).json({ shapes });
+  } catch (error) {
+    console.error("Failed to fetch shapes:", error);
+    return res.status(500).json({ message: "Failed to fetch shapes" });
+  }
+}
+
+export { createRoom,getRoomIdfromSlug, getMyRooms, deleteRoom, getShapes };
