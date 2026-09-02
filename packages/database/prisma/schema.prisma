@@ -24,13 +24,15 @@ model Room {
   createdAt DateTime @default(now())
   adminId   String
   admin     User     @relation(fields: [adminId], references: [id])
-  chats     Chat[]
+  shapes    Shape[]
 }
 
-model Chat {
-  id      Int    @id @default(autoincrement())
-  roomId  Int
-  message String
-  userId  String
-  room    Room   @relation(fields: [roomId], references: [id])
+model Shape {
+  id     Int    @id @default(autoincrement())
+  roomId Int
+  userId String
+  name   String
+  data   Json
+
+  room Room @relation(fields: [roomId], references: [id])
 }
