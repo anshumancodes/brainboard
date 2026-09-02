@@ -6,29 +6,70 @@ export type WsDrawPayload = {
   type: "draw";
   roomId: string;
   shape: string;
+  shapeId?: number;
   message: Record<string, unknown>; // serialised Fabric object JSON
 };
 
-type IncomingMessage = WsDrawPayload | { type: string };
+export type WsShapeCreatedPayload = {
+  type: "shape_created";
+  shapeId: number;
+  /** Echoed back from the sender so the client can match the ack to the exact Fabric object. */
+  tempId?: string;
+  message: Record<string, unknown>;
+};
+
+export type WsShapeUpdatedPayload = {
+  type: "shape_updated";
+  shapeId: number;
+  //  Present only on the broadcast sent to remote peers; absent on the ack sent to the originator.
+  message?: Record<string, unknown>;
+};
+
+type IncomingMessage =
+  | WsDrawPayload
+  | WsShapeCreatedPayload
+  | WsShapeUpdatedPayload
+  | { type: string };
 
 interface UseWebSocketOptions {
   roomId: string;
   onRemoteDraw: (payload: WsDrawPayload) => void;
+  onShapeCreated?: (payload: WsShapeCreatedPayload) => void;
+  onRemoteUpdate?: (payload: WsShapeUpdatedPayload) => void;
 }
 
-export function useWebSocket({ roomId, onRemoteDraw }: UseWebSocketOptions) {
+export function useWebSocket({
+  roomId,
+  onRemoteDraw,
+  onShapeCreated,
+  onRemoteUpdate,
+}: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const onRemoteDrawRef = useRef(onRemoteDraw);
+  const onShapeCreatedRef = useRef(onShapeCreated);
+  const onRemoteUpdateRef = useRef(onRemoteUpdate);
 
-  // Keep callback ref fresh without reconnecting
+  // Keep callback refs fresh without reconnecting
   useEffect(() => {
     onRemoteDrawRef.current = onRemoteDraw;
   }, [onRemoteDraw]);
 
   useEffect(() => {
+    onShapeCreatedRef.current = onShapeCreated;
+  }, [onShapeCreated]);
+
+  useEffect(() => {
+    onRemoteUpdateRef.current = onRemoteUpdate;
+  }, [onRemoteUpdate]);
+
+  useEffect(() => {
     const token = getToken();
     // Don't connect until we have both a valid token and a resolved (non-empty) roomId
     if (!token || !roomId) return;
+
+    // Flag set during intentional cleanup (React Strict Mode double-invoke, unmount, roomId change).
+    // Prevents onerror from logging noise when *we* close the socket.
+    let intentionalClose = false;
 
     const ws = new WebSocket(`${WS_URL}?token=${token}`);
     wsRef.current = ws;
@@ -42,17 +83,27 @@ export function useWebSocket({ roomId, onRemoteDraw }: UseWebSocketOptions) {
         const data: IncomingMessage = JSON.parse(event.data as string);
         if (data.type === "draw") {
           onRemoteDrawRef.current(data as WsDrawPayload);
+        } else if (data.type === "shape_created") {
+          onShapeCreatedRef.current?.(data as WsShapeCreatedPayload);
+        } else if (data.type === "shape_updated") {
+          onRemoteUpdateRef.current?.(data as WsShapeUpdatedPayload);
         }
       } catch {
         // ignore malformed messages
       }
     };
 
-    ws.onerror = (err) => {
-      console.error("[WS] error", err);
+    ws.onerror = () => {
+      if (!intentionalClose) {
+        console.error(
+          "[WS] Unexpected connection error — check that ws-backend is reachable at",
+          WS_URL,
+        );
+      }
     };
 
     return () => {
+      intentionalClose = true;
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "leave_room", roomId }));
       }
@@ -61,14 +112,18 @@ export function useWebSocket({ roomId, onRemoteDraw }: UseWebSocketOptions) {
     };
   }, [roomId]);
 
-  /**
-   * Send a draw event for a single Fabric object.
-   *
-   * @param shapeName  - fabric class name (e.g. "Rect", "Circle", "Path")
-   * @param objectJson - result of fabricObject.toObject()
-   */
+  // Send a draw event for a brand-new Fabric object (shape creation).
+
+  // @param shapeName  - fabric class name (e.g. "Rect", "Circle", "Path")
+  // @param objectJson - result of fabricObject.toObject()
+  // @param tempId     - client-generated UUID for ack correlation
+
   const sendDraw = useCallback(
-    (shapeName: string, objectJson: Record<string, unknown>) => {
+    (
+      shapeName: string,
+      objectJson: Record<string, unknown>,
+      tempId?: string,
+    ) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
@@ -78,11 +133,35 @@ export function useWebSocket({ roomId, onRemoteDraw }: UseWebSocketOptions) {
           roomId,
           shape: shapeName,
           message: objectJson,
+          tempId,
         }),
       );
     },
     [roomId],
   );
 
-  return { sendDraw };
+  //  Send an update event for an existing Fabric object (move / resize / rotate).
+  //  The backend will update the existing DB row instead of creating a new one.
+
+  //  @param shapeId    - the persistent DB id stamped on the Fabric object
+  //  @param objectJson - result of fabricObject.toObject()
+
+  const sendUpdate = useCallback(
+    (shapeId: number, objectJson: Record<string, unknown>) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(
+        JSON.stringify({
+          type: "update",
+          roomId,
+          shapeId,
+          message: objectJson,
+        }),
+      );
+    },
+    [roomId],
+  );
+
+  return { sendDraw,sendUpdate };
 }
