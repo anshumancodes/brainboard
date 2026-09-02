@@ -45,18 +45,7 @@ export default function Whiteboard() {
 
     fabricCanvasRef.current = canvas;
 
-    // Temporary test object
-    const rect = new Rect({
-      left: 100,
-      top: 100,
-      width: 120,
-      height: 80,
-      fill: "#6366f1",
-      rx: 8,
-      ry: 8,
-    });
-
-    canvas.add(rect);
+   
 
     const handleResize = () => {
       canvas.setDimensions({
@@ -85,13 +74,16 @@ export default function Whiteboard() {
     canvas.isDrawingMode = activeTool === "draw";
     canvas.selection = activeTool === "select";
 
+    const eraserCursorSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgba(255,255,255,0.4)" stroke="#111827" stroke-width="2"/></svg>`;
+    const eraserCursorUrl = `url("data:image/svg+xml,${encodeURIComponent(eraserCursorSvg)}") 12 12, crosshair`;
+
     canvas.defaultCursor =
       activeTool === "hand"
         ? "grab"
         : activeTool === "draw"
           ? "crosshair"
           : activeTool === "eraser"
-            ? "crosshair"
+            ? eraserCursorUrl
             : "default";
 
     /*
