@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Canvas,
   Circle,
   FabricImage,
+  FabricObject,
   IText,
   Line,
   Point,
@@ -12,27 +13,57 @@ import {
   Polygon,
   Rect,
   Triangle,
+  util,
 } from "fabric";
 
 import WhiteboardToolbar from "./WhiteboardToolbar";
 import type { Tool } from "@repo/ui/types";
+import { useWebSocket } from "../../hooks/useWebSocket";
+import api from "../../lib/api";
 
-export default function Whiteboard() {
+interface WhiteboardProps {
+  roomId: string;
+}
+
+export default function Whiteboard({ roomId }: WhiteboardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<Canvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [activeTool, setActiveTool] = useState<Tool>("select");
 
-
-  //  Space-bar pan refs — kept as refs so event handlers
+  //  Space-bar pan refs kept as refs so event handlers
   //   always read the latest value without re-registering.
   const isSpaceDownRef = useRef(false);
   const toolBeforeSpaceRef = useRef<Tool>("select");
+  // Suppress draw-emit when we add shapes received from WS or loaded from DB
+  const isRemoteAddRef = useRef(false);
 
-  
-    // Create Fabric canvas once.
-   
+  //Remote draw handler
+  const handleRemoteDraw = useCallback(
+    async (payload: { shape: string; message: Record<string, unknown> }) => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      try {
+        const objects = await util.enlivenObjects([payload.message]);
+        isRemoteAddRef.current = true;
+        objects.forEach((obj) => {
+          (obj as FabricObject).set({ selectable: true, evented: true });
+          canvas.add(obj as FabricObject);
+        });
+        isRemoteAddRef.current = false;
+        canvas.requestRenderAll();
+      } catch (err) {
+        console.error("[WB] Failed to render remote shape", err);
+      }
+    },
+    [],
+  );
+
+  const { sendDraw } = useWebSocket({ roomId, onRemoteDraw: handleRemoteDraw });
+
+  // Create Fabric canvas once
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -44,8 +75,6 @@ export default function Whiteboard() {
     });
 
     fabricCanvasRef.current = canvas;
-
-   
 
     const handleResize = () => {
       canvas.setDimensions({
@@ -62,6 +91,73 @@ export default function Whiteboard() {
       fabricCanvasRef.current = null;
     };
   }, []);
+
+  //Load persisted shapes from DB on mount
+  useEffect(() => {
+    if (!roomId) return;
+
+    const load = async () => {
+      try {
+        const { data } = await api.get<{
+          shapes: { name: string; data: Record<string, unknown> }[];
+        }>(`/room/shapes/${roomId}`);
+
+        const canvas = fabricCanvasRef.current;
+        if (!canvas || !data.shapes?.length) return;
+
+        const objects = await util.enlivenObjects(
+          data.shapes.map((s) => s.data),
+        );
+
+        isRemoteAddRef.current = true;
+        objects.forEach((obj) => {
+          (obj as FabricObject).set({ selectable: true, evented: true });
+          canvas.add(obj as FabricObject);
+        });
+        isRemoteAddRef.current = false;
+
+        canvas.requestRenderAll();
+      } catch (err) {
+        console.error("[WB] Failed to load shapes", err);
+      }
+    };
+
+    // Wait for Fabric canvas to be ready
+    const timer = setTimeout(load, 100);
+    return () => clearTimeout(timer);
+  }, [roomId]);
+
+  //Emit draw event whenever a shape is placed/modified
+  const emitDraw = useCallback(
+    (obj: FabricObject) => {
+      const shapeName = obj.type ?? "unknown";
+      const objectJson = obj.toObject() as Record<string, unknown>;
+      sendDraw(shapeName, objectJson);
+    },
+    [sendDraw],
+  );
+
+  // Register canvas-level listeners for local changes
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const onObjectAdded = (e: any) => {
+      if (!isRemoteAddRef.current && e.target) emitDraw(e.target);
+    };
+
+    const onObjectModified = (e: any) => {
+      if (e.target) emitDraw(e.target);
+    };
+
+    canvas.on("object:added", onObjectAdded);
+    canvas.on("object:modified", onObjectModified);
+
+    return () => {
+      canvas.off("object:added", onObjectAdded);
+      canvas.off("object:modified", onObjectModified);
+    };
+  }, [emitDraw]);
 
   /*
    * Configure Fabric based on selected tool.
@@ -256,7 +352,7 @@ export default function Whiteboard() {
         const deltaX = currentX - lastPanPoint.x;
         const deltaY = currentY - lastPanPoint.y;
 
-      canvas.relativePan(new Point(deltaX, deltaY));
+        canvas.relativePan(new Point(deltaX, deltaY));
 
         lastPanPoint = {
           x: currentX,
@@ -624,7 +720,10 @@ export default function Whiteboard() {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative h-screen w-full overflow-hidden bg-white">
+    <div
+      ref={containerRef}
+      className="relative h-screen w-full overflow-hidden bg-white"
+    >
       <canvas ref={canvasRef} />
 
       <WhiteboardToolbar activeTool={activeTool} onToolChange={setActiveTool} />
