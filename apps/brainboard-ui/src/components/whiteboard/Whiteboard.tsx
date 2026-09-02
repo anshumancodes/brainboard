@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Canvas,
   Circle,
@@ -20,12 +21,15 @@ import WhiteboardToolbar from "./WhiteboardToolbar";
 import type { Tool } from "@repo/ui/types";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import api from "../../lib/api";
+import { getToken } from "../../lib/auth";
 
 interface WhiteboardProps {
+  /** The numeric room ID from the URL. */
   roomId: string;
 }
 
 export default function Whiteboard({ roomId }: WhiteboardProps) {
+  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<Canvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,6 +42,14 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
   const toolBeforeSpaceRef = useRef<Tool>("select");
   // Suppress draw-emit when we add shapes received from WS or loaded from DB
   const isRemoteAddRef = useRef(false);
+
+  // Redirect to home if not authenticated
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      router.replace("/");
+    }
+  }, [router]);
 
   //Remote draw handler
   const handleRemoteDraw = useCallback(
@@ -61,7 +73,10 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
     [],
   );
 
-  const { sendDraw } = useWebSocket({ roomId, onRemoteDraw: handleRemoteDraw });
+  const { sendDraw } = useWebSocket({
+    roomId: roomId ?? "",
+    onRemoteDraw: handleRemoteDraw,
+  });
 
   // Create Fabric canvas once
   useEffect(() => {
@@ -94,7 +109,7 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
 
   //Load persisted shapes from DB on mount
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || isNaN(Number(roomId))) return;
 
     const load = async () => {
       try {
@@ -122,7 +137,7 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
       }
     };
 
-    // Wait for Fabric canvas to be ready
+    // Small delay to ensure Fabric canvas has mounted
     const timer = setTimeout(load, 100);
     return () => clearTimeout(timer);
   }, [roomId]);
