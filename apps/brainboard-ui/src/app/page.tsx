@@ -39,7 +39,7 @@ export default function Hero() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/login"
+              href="/signin"
               className="hidden text-sm text-white/70 transition hover:text-white sm:block"
             >
               Log in
@@ -88,7 +88,7 @@ export default function Hero() {
 
             <Link
               href="#demo"
-              className="rounded-full border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-medium backdrop-blur-md transition hover:bg-white/15"
+              className="rounded-full border border-white/20 bg-white/70 px-6 py-3.5 text-sm font-medium text-[#071014] backdrop-blur-md transition hover:bg-white/30"
             >
               View demo
             </Link>
