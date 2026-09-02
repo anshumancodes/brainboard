@@ -73,14 +73,25 @@ wss.on("connection", async function connection(ws, request) {
       if (isNaN(roomId)) return;
 
       // persist the shape in db
-      await prisma.shape.create({
+      const createdShape = await prisma.shape.create({
         data: {
           roomId,
           userId,
           name: shapeName,
-          data: message, 
+          data: message,
         },
       });
+
+      // send the new shape id back to the sender so the client can stamp the object
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "shape_created",
+            shapeId: createdShape.id,
+            message,
+          }),
+        );
+      }
 
       // broadcast to all OTHER users in this room (sender has optimistic update)
       users.forEach((user) => {
@@ -88,8 +99,9 @@ wss.on("connection", async function connection(ws, request) {
           user.ws.send(
             JSON.stringify({
               type: "draw",
+              shapeId: createdShape.id,
               message,
-              shape: shapeName, 
+              shape: shapeName,
               userId,
               roomId: roomIdStr,
             }),
