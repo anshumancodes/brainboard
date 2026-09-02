@@ -136,4 +136,31 @@ async function getShapes(req: Request, res: Response) {
   }
 }
 
-export { createRoom,getRoomIdfromSlug, getMyRooms, deleteRoom, getShapes };
+async function deleteShape(req: Request, res: Response) {
+  try {
+    const shapeId = Number(req.params.shapeId);
+
+    if (isNaN(shapeId)) {
+      return res.status(400).json({ message: "Invalid shape ID" });
+    }
+
+    // Verify the shape exists and belongs to a room the requester can access
+    const shape = await prisma.shape.findUnique({
+      where: { id: shapeId },
+      include: { room: true },
+    });
+
+    if (!shape) {
+      return res.status(404).json({ message: "Shape not found" });
+    }
+
+    await prisma.shape.delete({ where: { id: shapeId } });
+
+    return res.status(200).json({ message: "Shape deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete shape:", error);
+    return res.status(500).json({ message: "Failed to delete shape" });
+  }
+}
+
+export { createRoom, getRoomIdfromSlug, getMyRooms, deleteRoom, getShapes, deleteShape };
