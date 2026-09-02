@@ -27,6 +27,7 @@ export function useWebSocket({ roomId, onRemoteDraw }: UseWebSocketOptions) {
 
   useEffect(() => {
     const token = getToken();
+    // Don't connect until we have both a valid token and a resolved (non-empty) roomId
     if (!token || !roomId) return;
 
     const ws = new WebSocket(`${WS_URL}?token=${token}`);
