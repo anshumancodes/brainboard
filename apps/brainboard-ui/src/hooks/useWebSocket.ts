@@ -25,10 +25,17 @@ export type WsShapeUpdatedPayload = {
   message?: Record<string, unknown>;
 };
 
+export type WsShapeDeletedPayload = {
+  type: "shape_deleted";
+  shapeId: number;
+  roomId: string;
+};
+
 type IncomingMessage =
   | WsDrawPayload
   | WsShapeCreatedPayload
   | WsShapeUpdatedPayload
+  | WsShapeDeletedPayload
   | { type: string };
 
 interface UseWebSocketOptions {
@@ -36,6 +43,7 @@ interface UseWebSocketOptions {
   onRemoteDraw: (payload: WsDrawPayload) => void;
   onShapeCreated?: (payload: WsShapeCreatedPayload) => void;
   onRemoteUpdate?: (payload: WsShapeUpdatedPayload) => void;
+  onRemoteDelete?: (payload: WsShapeDeletedPayload) => void;
 }
 
 export function useWebSocket({
@@ -43,11 +51,13 @@ export function useWebSocket({
   onRemoteDraw,
   onShapeCreated,
   onRemoteUpdate,
+  onRemoteDelete,
 }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const onRemoteDrawRef = useRef(onRemoteDraw);
   const onShapeCreatedRef = useRef(onShapeCreated);
   const onRemoteUpdateRef = useRef(onRemoteUpdate);
+  const onRemoteDeleteRef = useRef(onRemoteDelete);
 
   // Keep callback refs fresh without reconnecting
   useEffect(() => {
@@ -61,6 +71,10 @@ export function useWebSocket({
   useEffect(() => {
     onRemoteUpdateRef.current = onRemoteUpdate;
   }, [onRemoteUpdate]);
+
+  useEffect(() => {
+    onRemoteDeleteRef.current = onRemoteDelete;
+  }, [onRemoteDelete]);
 
   useEffect(() => {
     const token = getToken();
@@ -87,6 +101,8 @@ export function useWebSocket({
           onShapeCreatedRef.current?.(data as WsShapeCreatedPayload);
         } else if (data.type === "shape_updated") {
           onRemoteUpdateRef.current?.(data as WsShapeUpdatedPayload);
+        } else if (data.type === "shape_deleted") {
+          onRemoteDeleteRef.current?.(data as WsShapeDeletedPayload);
         }
       } catch {
         // ignore malformed messages
@@ -163,5 +179,22 @@ export function useWebSocket({
     [roomId],
   );
 
-  return { sendDraw,sendUpdate };
+  // Send a delete event to remove a shape from the DB and broadcast to peers.
+  const sendDelete = useCallback(
+    (shapeId: number) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(
+        JSON.stringify({
+          type: "delete",
+          roomId,
+          shapeId,
+        }),
+      );
+    },
+    [roomId],
+  );
+
+  return { sendDraw, sendUpdate, sendDelete };
 }
