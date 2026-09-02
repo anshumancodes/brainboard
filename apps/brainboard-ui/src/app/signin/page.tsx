@@ -6,7 +6,7 @@ import axios from "axios";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, Loader2 } from "lucide-react";
 import { saveToken } from "../../lib/auth";
-import {HTTP_BACKEND_URL} from "../../config/config"
+import {HTTP_BACKEND_URL} from "../../config/config";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -40,19 +40,13 @@ export default function SignInPage() {
     setError(null);
 
     try {
-      const res = await axios.post(
-        `${HTTP_BACKEND_URL}/user/signin`,
-        form
-      );
+      const res = await axios.post(`${HTTP_BACKEND_URL}/user/signin`, form);
 
       saveToken(res.data.token);
       router.push("/dashboard");
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        setError(
-          err.response?.data?.message ??
-            "Sign-in failed. Try again."
-        );
+        setError(err.response?.data?.message ?? "Sign-in failed. Try again.");
       } else {
         setError("An unexpected error occurred.");
       }
@@ -101,8 +95,7 @@ export default function SignInPage() {
               </h1>
 
               <p className="mt-3 text-sm leading-6 text-white/45">
-                Sign in to your Brainboard account and get back to
-                your ideas.
+                Sign in to your Brainboard account and get back to your ideas.
               </p>
             </div>
 
