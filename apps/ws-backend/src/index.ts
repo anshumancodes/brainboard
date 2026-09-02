@@ -160,5 +160,34 @@ wss.on("connection", async function connection(ws, request) {
         }
       });
     }
+
+    if (ParsedData.type === "delete") {
+      const shapeId = parseInt(ParsedData.shapeId, 10);
+      const roomIdStr: string = ParsedData.roomId;
+
+      if (isNaN(shapeId)) return;
+
+      // Verify the shape belongs to this room before deleting
+      const shape = await prisma.shape.findFirst({
+        where: { id: shapeId, roomId: parseInt(roomIdStr, 10) },
+      });
+
+      if (!shape) return;
+
+      await prisma.shape.delete({ where: { id: shapeId } });
+
+      // Broadcast deletion to all OTHER users in the room
+      users.forEach((user) => {
+        if (user.rooms.includes(roomIdStr) && user.ws !== ws) {
+          user.ws.send(
+            JSON.stringify({
+              type: "shape_deleted",
+              shapeId,
+              roomId: roomIdStr,
+            }),
+          );
+        }
+      });
+    }
   });
 });
