@@ -25,7 +25,11 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const user = getUserFromToken();
+  const [user, setUser] = useState<ReturnType<typeof getUserFromToken>>(null);
+
+  useEffect(() => {
+    setUser(getUserFromToken());
+  }, []);
 
   const fetchRooms = useCallback(async () => {
     setLoadingRooms(true);
@@ -82,8 +86,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handleJoinRoom = (slug: string) => {
-    router.push(`/canvas/${slug}`);
+  const handleJoinRoom = (id: number) => {
+    router.push(`/canvas/${id}`);
   };
 
   return (
@@ -270,7 +274,7 @@ export default function DashboardPage() {
 
                         <button
                           id={`dashboard-join-room-${room.id}`}
-                          onClick={() => handleJoinRoom(room.slug)}
+                          onClick={() => handleJoinRoom(room.id)}
                           className="group flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/4 px-3 py-1.5 text-xs text-white/60 transition hover:border-white/20 hover:bg-white/8 hover:text-white"
                         >
                           join room
