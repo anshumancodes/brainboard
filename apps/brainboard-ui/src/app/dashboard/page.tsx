@@ -173,7 +173,7 @@ export default function DashboardPage() {
           )}
 
           {/* Rooms list container */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.025] shadow-2xl shadow-black/20">
+          <div className="rounded-2xl border border-white/10 bg-white/2.5 shadow-2xl shadow-black/20">
             {/* List header */}
             <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3.5">
               <Users size={13} className="text-white/30" />
@@ -215,7 +215,7 @@ export default function DashboardPage() {
                   return (
                     <li
                       key={room.id}
-                      className={`flex flex-col gap-3 px-5 py-4 transition hover:bg-white/[0.02] sm:flex-row sm:items-center sm:gap-0 ${
+                      className={`flex flex-col gap-3 px-5 py-4 transition hover:bg-white/2 sm:flex-row sm:items-center sm:gap-0 ${
                         !isLast ? "border-b border-white/8" : ""
                       }`}
                     >
