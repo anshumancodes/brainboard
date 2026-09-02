@@ -78,7 +78,7 @@ wss.on("connection", async function connection(ws, request) {
           roomId,
           userId,
           name: shapeName,
-          data: message.toJSON(),
+          data: message, 
         },
       });
 
@@ -89,7 +89,7 @@ wss.on("connection", async function connection(ws, request) {
             JSON.stringify({
               type: "draw",
               message,
-              name,
+              shape: shapeName, 
               userId,
               roomId: roomIdStr,
             }),
