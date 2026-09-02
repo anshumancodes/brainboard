@@ -23,6 +23,7 @@ import { useWebSocket } from "../../hooks/useWebSocket";
 import type {
   WsShapeCreatedPayload,
   WsShapeUpdatedPayload,
+  WsShapeDeletedPayload,
 } from "../../hooks/useWebSocket";
 import api from "../../lib/api";
 import { getToken } from "../../lib/auth";
@@ -55,17 +56,16 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
 
   const pendingShapesRef = useRef<Map<string, FabricObject>>(new Map());
 
-  // Delete a shape from the DB by its id.
+  // Delete a shape from the DB and broadcast the removal to peers.
   // Fire-and-forget — canvas is already updated optimistically.
+  // sendDelete is injected lazily via a ref so this callback is stable.
+  const sendDeleteRef = useRef<((shapeId: number) => void) | null>(null);
 
-  const deleteShapeFromDb = useCallback(async (obj: FabricObject) => {
+  const deleteShape = useCallback((obj: FabricObject) => {
     const shapeId = (obj as any).shapeId as number | undefined;
     if (!shapeId) return;
-    try {
-      await api.delete(`/room/shapes/${shapeId}`);
-    } catch (err) {
-      console.error("[WB] Failed to delete shape from DB", err);
-    }
+    // Broadcast to peers first (WS message also triggers backend DB delete)
+    sendDeleteRef.current?.(shapeId);
   }, []);
 
   // Redirect to home if not authenticated
@@ -157,12 +157,41 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
     canvas.requestRenderAll();
   }, []);
 
-  const { sendDraw, sendUpdate } = useWebSocket({
+  // When a remote peer deletes a shape, remove it from the local canvas.
+
+  const handleRemoteDelete = useCallback((payload: WsShapeDeletedPayload) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const target = canvas
+      .getObjects()
+      .find((o) => (o as any).shapeId === payload.shapeId) as
+      | FabricObject
+      | undefined;
+
+    if (!target) return;
+
+    // Suppress the object:removed event from triggering a re-broadcast
+    isRemoteAddRef.current = true;
+    canvas.remove(target);
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+    isRemoteAddRef.current = false;
+  }, []);
+
+  const { sendDraw, sendUpdate, sendDelete } = useWebSocket({
     roomId: roomId ?? "",
     onRemoteDraw: handleRemoteDraw,
     onShapeCreated: handleShapeCreated,
     onRemoteUpdate: handleRemoteUpdate,
+    onRemoteDelete: handleRemoteDelete,
   });
+
+  // Wire sendDelete into the stable ref so deleteShape can call it
+  // without needing to re-create the callback on every render.
+  useEffect(() => {
+    sendDeleteRef.current = sendDelete;
+  }, [sendDelete]);
 
   // Create Fabric canvas once
   useEffect(() => {
@@ -379,26 +408,23 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
           canvas.remove(target);
           canvas.discardActiveObject();
           canvas.requestRenderAll();
-          // Delete from DB (fire-and-forget)
-          deleteShapeFromDb(target);
+          // Broadcast deletion via WS (backend deletes from DB and fans out to peers)
+          deleteShape(target);
         }
 
         return;
       }
 
-      /*
-       * IMAGE
-       *
-       * Image is handled through a file picker,
-       * so nothing happens on mouse down.
-       */
+      // IMAGE
+      //  Image is handled through a file picker,
+      // so nothing happens on mouse down.
+      //
       if (activeTool === "image") {
         return;
       }
 
-      /*
-       * TEXT — emitted immediately since there is no drag phase.
-       */
+      // TEXT — emitted immediately since there is no drag phase.
+
       if (activeTool === "text") {
         const text = new IText("Type here", {
           left: pointer.x,
@@ -417,10 +443,9 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
         return;
       }
 
-      /*
-       * SHAPES — mark that a drag-draw is in progress so object:added
-       * does not fire prematurely.
-       */
+      //  SHAPES — mark that a drag-draw is in progress so object:added
+      // does not fire prematurely.
+
       isDrawingRef.current = true;
 
       startPoint = {
@@ -485,13 +510,11 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
       }
     };
 
-    /*
-     * Mouse move
-     */
+    //  Mouse move
+
     const handleMouseMove = (event: any) => {
-      /*
-       * HAND / PAN
-       */
+      // HAND / PAN
+
       if (activeTool === "hand" && isPanning && lastPanPoint) {
         const currentX = event.e.clientX;
         const currentY = event.e.clientY;
@@ -518,9 +541,8 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
       const width = Math.abs(pointer.x - startPoint.x);
       const height = Math.abs(pointer.y - startPoint.y);
 
-      /*
-       * RECTANGLE
-       */
+      // RECTANGLE
+
       if (activeTool === "rectangle") {
         previewObject.set({
           left: Math.min(pointer.x, startPoint.x),
@@ -530,9 +552,8 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
         });
       }
 
-      /*
-       * CIRCLE
-       */
+      //  CIRCLE
+
       if (activeTool === "circle") {
         const radius = Math.max(width, height) / 2;
 
@@ -543,9 +564,8 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
         });
       }
 
-      /*
-       * LINE
-       */
+      // LINE
+
       if (activeTool === "line") {
         previewObject.set({
           x2: pointer.x,
@@ -553,9 +573,8 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
         });
       }
 
-      /*
-       * DIAMOND
-       */
+      // DIAMOND
+
       if (activeTool === "diamond" && previewObject instanceof Polygon) {
         previewObject.set({
           left: Math.min(pointer.x, startPoint.x),
@@ -569,13 +588,11 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
       canvas.requestRenderAll();
     };
 
-    /*
-     * Mouse up
-     */
+    // Mouse up
+
     const handleMouseUp = () => {
-      /*
-       * Finish panning
-       */
+      // Finish panning
+
       if (activeTool === "hand") {
         isPanning = false;
         lastPanPoint = null;
@@ -829,8 +846,8 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
         const selected = canvas.getActiveObjects();
 
         if (selected.length > 0) {
-          // Delete from DB (fire-and-forget)
-          selected.forEach((obj) => deleteShapeFromDb(obj));
+          // Broadcast deletion via WS (backend deletes from DB and fans out to peers)
+          selected.forEach((obj) => deleteShape(obj));
           canvas.remove(...selected);
           canvas.discardActiveObject();
           canvas.requestRenderAll();
