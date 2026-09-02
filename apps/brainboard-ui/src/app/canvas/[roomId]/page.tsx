@@ -1,7 +1,16 @@
 import Whiteboard from "@/components/whiteboard/Whiteboard";
 
-const canvasPage = () => {
-  return <div><Whiteboard/></div>;
+interface CanvasPageProps {
+  params: Promise<{ roomId: string }>;
+}
+
+const CanvasPage = async ({ params }: CanvasPageProps) => {
+  const { roomId } = await params;
+  return (
+    <div>
+      <Whiteboard roomId={roomId} />
+    </div>
+  );
 };
 
-export default canvasPage;
+export default CanvasPage;
