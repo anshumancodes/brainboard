@@ -18,6 +18,7 @@ import {
 } from "fabric";
 
 import WhiteboardToolbar from "./WhiteboardToolbar";
+import Toolbar from "./Toolbar";
 import type { Tool } from "@repo/ui/types";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import type {
@@ -40,6 +41,7 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [activeTool, setActiveTool] = useState<Tool>("select");
+  const [selectedObject, setSelectedObject] = useState<FabricObject | null>(null);
 
   //  Space-bar pan refs kept as refs so event handlers
   //   always read the latest value without re-registering.
@@ -319,14 +321,34 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
       if (e.path) emitDraw(e.path);
     };
 
+    // Track selection for the properties toolbar
+    const onSelectionCreated = (e: any) => {
+      // Use the first selected object (or the single active object)
+      const active = e.selected?.[0] ?? canvas.getActiveObject();
+      setSelectedObject(active ?? null);
+    };
+    const onSelectionUpdated = (e: any) => {
+      const active = e.selected?.[0] ?? canvas.getActiveObject();
+      setSelectedObject(active ?? null);
+    };
+    const onSelectionCleared = () => {
+      setSelectedObject(null);
+    };
+
     canvas.on("object:added", onObjectAdded);
     canvas.on("object:modified", onObjectModified);
     canvas.on("path:created", onPathCreated);
+    canvas.on("selection:created", onSelectionCreated);
+    canvas.on("selection:updated", onSelectionUpdated);
+    canvas.on("selection:cleared", onSelectionCleared);
 
     return () => {
       canvas.off("object:added", onObjectAdded);
       canvas.off("object:modified", onObjectModified);
       canvas.off("path:created", onPathCreated);
+      canvas.off("selection:created", onSelectionCreated);
+      canvas.off("selection:updated", onSelectionUpdated);
+      canvas.off("selection:cleared", onSelectionCleared);
     };
   }, [emitDraw, emitUpdate]);
 
@@ -905,12 +927,26 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
     };
   }, []);
 
+  // Handle property changes from the Toolbar and sync via WebSocket
+  const handleObjectChange = useCallback(
+    (obj: FabricObject, _patch: Partial<Record<string, unknown>>) => {
+      emitUpdate(obj);
+    },
+    [emitUpdate],
+  );
+
   return (
     <div
       ref={containerRef}
       className="relative h-screen w-full overflow-hidden bg-white"
     >
       <canvas ref={canvasRef} />
+
+      {/* Properties sidebar — top-left corner */}
+      <Toolbar
+        selectedObject={selectedObject}
+        onObjectChange={handleObjectChange}
+      />
 
       <WhiteboardToolbar activeTool={activeTool} onToolChange={setActiveTool} />
     </div>
