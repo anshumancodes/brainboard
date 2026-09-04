@@ -130,14 +130,11 @@ export default function Whiteboard({ roomId }: WhiteboardProps) {
 
   // Property-change bridge between Toolbar and WebSocket.
 
-  // The `_patch` arg is forwarded by Toolbar but not needed here — Game
-  // serialises the full object on every update via emitUpdate.
-  const handleObjectChange = useCallback(
-    (obj: FabricObject, _patch?: Partial<Record<string, unknown>>) => {
-      gameRef.current?.emitUpdate(obj);
-    },
-    [],
-  );
+  // The second arg (patch) is forwarded by Toolbar but not needed here —
+  // Game serialises the full object on every update via emitUpdate.
+  const handleObjectChange = useCallback((obj: FabricObject) => {
+    gameRef.current?.emitUpdate(obj);
+  }, []);
 
   return (
     <div
