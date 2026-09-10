@@ -1,0 +1,146 @@
+name: Build & Deploy to VM
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1 — Build the entire monorepo
+  # ─────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all apps (turbo)
+        run: pnpm build
+
+      #  Collect everything the VM needs to run 
+      # We package:
+      #   • Root config files (package.json, pnpm-workspace.yaml, pnpm-lock.yaml, turbo.json)
+      #   • apps/*/package.json  (needed by pnpm on the VM for prod-install)
+      #   • apps/http-backend/.dist   ← tsc output
+      #   • apps/ws-backend/.dist     ← tsc output
+      #   • apps/brainboard-ui/.next  ← Next.js build
+      #   • apps/brainboard-ui/public ← Next.js static assets
+      #   • packages/                 ← shared workspace packages
+      # ────────────────────────────────────────────────────────────────────
+      - name: Create deployment archive
+        run: |
+          mkdir -p deploy_package
+
+          # Root config
+          cp package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json .npmrc deploy_package/ 2>/dev/null || true
+
+          # apps — keep directory structure
+          mkdir -p deploy_package/apps/http-backend
+          cp apps/http-backend/package.json deploy_package/apps/http-backend/
+          cp -r apps/http-backend/.dist     deploy_package/apps/http-backend/dist
+
+          mkdir -p deploy_package/apps/ws-backend
+          cp apps/ws-backend/package.json   deploy_package/apps/ws-backend/
+          cp -r apps/ws-backend/.dist       deploy_package/apps/ws-backend/dist
+
+          mkdir -p deploy_package/apps/brainboard-ui
+          cp apps/brainboard-ui/package.json  deploy_package/apps/brainboard-ui/
+          cp apps/brainboard-ui/next.config.ts deploy_package/apps/brainboard-ui/ 2>/dev/null || true
+          cp -r apps/brainboard-ui/.next      deploy_package/apps/brainboard-ui/.next
+          cp -r apps/brainboard-ui/public     deploy_package/apps/brainboard-ui/public
+
+          # Shared packages
+          cp -r packages deploy_package/packages
+
+          # Create tarball
+          tar -czf deploy.tar.gz -C deploy_package .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-package
+          path: deploy.tar.gz
+          retention-days: 1
+
+ 
+  # JOB 2 — Deploy to DigitalOcean VM
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-package
+
+      # Write SSH private key from secret 
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.DO_VM_HOST }}" >> ~/.ssh/known_hosts
+
+      #  Copy the tarball to the VM 
+      - name: Upload archive to VM
+        run: |
+          scp -i ~/.ssh/id_rsa \
+            deploy.tar.gz \
+            ${{ secrets.DO_VM_USER }}@${{ secrets.DO_VM_HOST }}:/tmp/deploy.tar.gz
+
+      #  Extract, prod-install, and restart via PM2 
+      - name: Deploy & restart services on VM
+        run: |
+          ssh -i ~/.ssh/id_rsa \
+            ${{ secrets.DO_VM_USER }}@${{ secrets.DO_VM_HOST }} \
+            'bash -s' << 'EOF'
+            set -euo pipefail
+
+            APP_DIR="/var/www/brainboard"
+
+            echo "==> Extracting build archive..."
+            mkdir -p "$APP_DIR"
+            tar -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
+            rm /tmp/deploy.tar.gz
+
+            cd "$APP_DIR"
+
+            echo "==> Installing production dependencies..."
+            pnpm install --frozen-lockfile --prod
+
+            echo "==> Restarting services with PM2..."
+            pm2 restart all --update-env
+
+            echo "==> Saving PM2 process list..."
+            pm2 save
+
+            echo "==> Deploy complete"
+          EOF
