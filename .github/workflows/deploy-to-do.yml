@@ -35,7 +35,10 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile 
+
+      - name: Generate Prisma client
+        run: pnpm --filter @repo/database generate
 
       - name: Build all apps (turbo)
         run: pnpm build
@@ -49,7 +52,6 @@ jobs:
       #   • apps/brainboard-ui/.next  ← Next.js build
       #   • apps/brainboard-ui/public ← Next.js static assets
       #   • packages/                 ← shared workspace packages
-      # ────────────────────────────────────────────────────────────────────
       - name: Create deployment archive
         run: |
           mkdir -p deploy_package
