@@ -124,17 +124,16 @@ jobs:
             'bash -s' << 'EOF'
             set -euo pipefail
 
-            APP_DIR="/var/www/brainboard"
-
-            echo "==> Extracting build archive..."
-            mkdir -p "$APP_DIR"
-            tar -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
-            rm /tmp/deploy.tar.gz
-
             cd "$APP_DIR"
 
+            echo "==> System info..."
+            df -h
+            free -h
+            node --version
+            pnpm --version
+
             echo "==> Installing production dependencies..."
-            pnpm install --frozen-lockfile --prod
+            pnpm install --frozen-lockfile --prod --reporter=append-only
 
             echo "==> Restarting services with PM2..."
             pm2 restart all --update-env
