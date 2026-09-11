@@ -5,7 +5,10 @@
   "main": "index.js",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "tsx": "./src/index.ts",
+      "default": "./src/index.js"
+    }
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
