@@ -7,6 +7,7 @@ dotenv.config({
 const JWT_KEY = process.env.JWT_SECRET;
 const PROD_CORS_ORIGIN = process.env.PROD_CORS_ORIGIN;
 const DEV_CORS_ORIGIN = process.env.DEV_CORS_ORIGIN;
+const ENVIROMENT = process.env.ENVIROMENT;
 
 if (!JWT_KEY) {
   throw new Error(
@@ -20,4 +21,5 @@ export {
   JWT_SECRET,
   PROD_CORS_ORIGIN,
   DEV_CORS_ORIGIN,
+  ENVIROMENT,
 };
