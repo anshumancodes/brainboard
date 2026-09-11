@@ -5,10 +5,19 @@ dotenv.config({
 });
 
 const JWT_KEY = process.env.JWT_SECRET;
+const PROD_CORS_ORIGIN = process.env.PROD_CORS_ORIGIN;
+const DEV_CORS_ORIGIN = process.env.DEV_CORS_ORIGIN;
+
 if (!JWT_KEY) {
   throw new Error(
     "JWT_SECRET failed to load — check .env path in @repo/backend-common/config",
   );
 }
 
-export const JWT_SECRET = new TextEncoder().encode(JWT_KEY);
+const JWT_SECRET = new TextEncoder().encode(JWT_KEY);
+
+export {
+  JWT_SECRET,
+  PROD_CORS_ORIGIN,
+  DEV_CORS_ORIGIN,
+};
