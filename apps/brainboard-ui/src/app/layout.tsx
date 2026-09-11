@@ -18,6 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://brainboard.anshumancdx.xyz"),
   title: {
     default: "Brainboard - Think. Sketch. Build.",
     template: "%s - Brainboard",
