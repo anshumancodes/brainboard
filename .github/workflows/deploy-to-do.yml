@@ -14,9 +14,9 @@ env:
   PNPM_VERSION: "9"
 
 jobs:
-  # ─────────────────────────────────────────────
+
   # JOB 1 — Build the entire monorepo
-  # ─────────────────────────────────────────────
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -45,13 +45,13 @@ jobs:
 
       #  Collect everything the VM needs to run 
       # We package:
-      #   • Root config files (package.json, pnpm-workspace.yaml, pnpm-lock.yaml, turbo.json)
-      #   • apps/*/package.json  (needed by pnpm on the VM for prod-install)
-      #   • apps/http-backend/.dist   ← tsc output
-      #   • apps/ws-backend/.dist     ← tsc output
-      #   • apps/brainboard-ui/.next  ← Next.js build
-      #   • apps/brainboard-ui/public ← Next.js static assets
-      #   • packages/                 ← shared workspace packages
+      #  Root config files (package.json, pnpm-workspace.yaml, pnpm-lock.yaml, turbo.json)
+      #  apps/*/package.json  (needed by pnpm on the VM for prod-install)
+      #  apps/http-backend/.dist   ← tsc output
+      #  apps/ws-backend/.dist     ← tsc output
+      #  apps/brainboard-ui/.next  ← Next.js build
+      #  apps/brainboard-ui/public ← Next.js static assets
+      #  packages/                 ← shared workspace packages
       - name: Create deployment archive
         run: |
           mkdir -p deploy_package
