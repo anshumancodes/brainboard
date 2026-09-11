@@ -42,7 +42,7 @@ export const metadata: Metadata = {
       "Brainboard is a collaborative whiteboard for thinking, sketching, planning, and building ideas together in real time.",
     images: [
       {
-        url: "/brainboard-hero.png",
+        url: "/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "Brainboard - Think. Sketch. Build.",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     title: "Brainboard - Think. Sketch. Build.",
     description:
       "Brainboard is a collaborative whiteboard for thinking, sketching, planning, and building ideas together in real time.",
-    images: ["/brainboard-hero.png"],
+    images: ["/og-image.jpg"],
   },
 };
 
