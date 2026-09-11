@@ -33,6 +33,28 @@ export const metadata: Metadata = {
     "visual collaboration",
     "team collaboration",
   ],
+  openGraph: {
+    type: "website",
+    siteName: "Brainboard",
+    title: "Brainboard - Think. Sketch. Build.",
+    description:
+      "Brainboard is a collaborative whiteboard for thinking, sketching, planning, and building ideas together in real time.",
+    images: [
+      {
+        url: "/brainboard-hero.png",
+        width: 1200,
+        height: 630,
+        alt: "Brainboard - Think. Sketch. Build.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Brainboard - Think. Sketch. Build.",
+    description:
+      "Brainboard is a collaborative whiteboard for thinking, sketching, planning, and building ideas together in real time.",
+    images: ["/brainboard-hero.png"],
+  },
 };
 
 export default function RootLayout({
